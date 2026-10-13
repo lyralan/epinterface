@@ -55,7 +55,9 @@ from epinterface.sbem.components.envelope import (
 from epinterface.sbem.components.systems import DHWFuelType, FuelType
 from epinterface.sbem.components.zones import ZoneComponent
 from epinterface.sbem.exceptions import NotImplementedParameter
+from epinterface.sbem.kiva import KivaFoundation
 from epinterface.sbem.prisma.client import PrismaSettings
+from epinterface.sbem.window_shading import WindowShading as WindowShadingSpec
 from epinterface.settings import energyplus_settings
 from epinterface.weather import BaseWeather
 
@@ -568,6 +570,14 @@ class Model(BaseWeather, validate_assignment=True):
     Basement: BasementAssumptions
     # TODO: should we have another field for whether or not the attic is ventilated, i.e. high infiltration?
     Zone: ZoneComponent
+    Foundation: KivaFoundation | None = Field(
+        default=None,
+        description="Kiva ground model for slab-on-grade floors; None keeps the setpoint-based ground temperature.",
+    )
+    WindowShading: WindowShadingSpec | None = Field(
+        default=None,
+        description="Seasonal interior shading multipliers and eaves on windows; None adds none.",
+    )
 
     @field_validator("geometry", mode="after")
     @classmethod
@@ -1010,6 +1020,10 @@ class Model(BaseWeather, validate_assignment=True):
         idf = self.add_constructions(
             idf, self.Zone.Envelope.Assemblies, self.Zone.Envelope.Window
         )
+        if self.Foundation is not None:
+            idf = self.Foundation.add(idf)
+        if self.WindowShading is not None:
+            idf = self.WindowShading.add(idf)
 
         # > operations
         # ----> space use
