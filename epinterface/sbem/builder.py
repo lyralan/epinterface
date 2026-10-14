@@ -1016,6 +1016,13 @@ class Model(BaseWeather, validate_assignment=True):
             # TODO: handle mutating infiltration object when "ventilated attics" are set
             for zone in added_zone_lists.attic_zone_list.Names:
                 new_zone_def.add_to_idf_zone(idf, zone)
+        else:
+            # an unused, unconditioned attic gets no zone definition, but it still exchanges air
+            # with outdoors (a vented attic runs ~4-7 ACH); without this it is sealed and overheats.
+            for zone in added_zone_lists.attic_zone_list.Names:
+                idf = self.Zone.Envelope.AtticInfiltration.add_infiltration_to_idf_zone(
+                    idf, zone
+                )
 
         idf = self.add_constructions(
             idf, self.Zone.Envelope.Assemblies, self.Zone.Envelope.Window
