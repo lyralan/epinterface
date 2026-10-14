@@ -327,13 +327,23 @@ class ZoneOperationsComponent(
                     winter_design_day_sch_name="d_AllOff_00",
                 )
             )
+            vent = self.HVAC.Ventilation
+            min_out = vent.NaturalVentMinOutdoorTemperature
+            max_out = vent.NaturalVentMaxOutdoorTemperature
+            delta = vent.NaturalVentDeltaTemperature
+            thermostat = self.SpaceUse.Thermostat
             ventilation_wind_and_stack_open_area = ZoneVentilationWindAndStackOpenArea(
                 Name=vent_wind_stack_name,
                 Zone_or_Space_Name=target_zone_name,
-                Minimum_Outdoor_Temperature=12,
+                Minimum_Outdoor_Temperature=12 if min_out is None else min_out,
                 Height_Difference=0,
-                Delta_Temperature=2,
-                Maximum_Outdoor_Temperature=25,
+                Delta_Temperature=2 if delta is None else delta,
+                Maximum_Outdoor_Temperature=25 if max_out is None else max_out,
+                Minimum_Indoor_Temperature=(
+                    (thermostat.HeatingSetpoint + thermostat.CoolingSetpoint) / 2
+                    if vent.NaturalVentAboveSetpointMidpoint
+                    else None
+                ),
                 Opening_Area=total_window_area,
                 Opening_Area_Fraction_Schedule_Name=vent_wind_stack_name_sch,
             )

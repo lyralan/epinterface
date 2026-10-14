@@ -578,6 +578,11 @@ class Model(BaseWeather, validate_assignment=True):
         default=None,
         description="Seasonal interior shading multipliers and eaves on windows; None adds none.",
     )
+    DaylightSavingTime: tuple[tuple[int, int], tuple[int, int]] | None = Field(
+        default=None,
+        description="Daylight saving period ((month, day), (month, day)); schedules follow clock "
+        "time, so they shift an hour earlier in standard time within it. None keeps standard time.",
+    )
 
     @field_validator("geometry", mode="after")
     @classmethod
@@ -1031,6 +1036,14 @@ class Model(BaseWeather, validate_assignment=True):
             idf = self.Foundation.add(idf)
         if self.WindowShading is not None:
             idf = self.WindowShading.add(idf)
+        if self.DaylightSavingTime is not None:
+            (sm, sd), (em, ed) = self.DaylightSavingTime
+            months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+            idf.newidfobject(
+                "RUNPERIODCONTROL:DAYLIGHTSAVINGTIME",
+                Start_Date=f"{months[sm - 1]} {sd}",
+                End_Date=f"{months[em - 1]} {ed}",
+            )
 
         # > operations
         # ----> space use

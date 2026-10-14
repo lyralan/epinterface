@@ -106,10 +106,40 @@ class InfiltrationComponent(
         title="Infiltration flow per exterior surface area [m3/s/m2]",
         ge=0,
     )
-    CalculationMethod: InfDesignFlowRateCalculationMethodType = Field(
+    CalculationMethod: InfDesignFlowRateCalculationMethodType | Literal["EffectiveLeakageArea"] = Field(
         ...,
         title="Calculation method",
+        description="A ZoneInfiltration:DesignFlowRate method, or EffectiveLeakageArea for "
+        "ZoneInfiltration:EffectiveLeakageArea (Sherman-Grimsrud stack and wind), which uses "
+        "the three fields below and needs a single zone, not a zone list.",
     )
+    SpecificLeakageArea: float | None = Field(
+        default=None,
+        title="Effective leakage area per zone floor area [m2/m2]",
+        ge=0,
+    )
+    StackCoefficient: float | None = Field(
+        default=None,
+        title="Sherman-Grimsrud stack coefficient [(L/s)2/(cm4.K)]",
+        ge=0,
+    )
+    WindCoefficient: float | None = Field(
+        default=None,
+        title="Sherman-Grimsrud wind coefficient [(L/s)2/(cm4.(m/s)2)]",
+        ge=0,
+    )
+
+    @model_validator(mode="after")
+    def check_leakage_area_fields(self):
+        """The effective leakage area method needs its area and coefficients."""
+        if self.CalculationMethod == "EffectiveLeakageArea" and None in (
+            self.SpecificLeakageArea,
+            self.StackCoefficient,
+            self.WindCoefficient,
+        ):
+            msg = "EffectiveLeakageArea needs SpecificLeakageArea, StackCoefficient and WindCoefficient."
+            raise ValueError(msg)
+        return self
 
     def add_infiltration_to_idf_zone(
         self, idf: IDF, target_zone_or_zone_list_name: str
@@ -137,6 +167,20 @@ class InfiltrationComponent(
         )
         inf_schedule, *_ = schedule.to_year_week_day()
         inf_schedule.to_epbunch(idf)
+        if self.CalculationMethod == "EffectiveLeakageArea":
+            from epinterface.geometry import get_zone_floor_area
+
+            area_m2 = get_zone_floor_area(idf, target_zone_or_zone_list_name)
+            idf.newidfobject(
+                "ZONEINFILTRATION:EFFECTIVELEAKAGEAREA",
+                Name=infiltration_name,
+                Zone_or_Space_Name=target_zone_or_zone_list_name,
+                Schedule_Name=inf_schedule.Name,
+                Effective_Air_Leakage_Area=round(self.SpecificLeakageArea * area_m2 * 1e4, 4),  # cm2
+                Stack_Coefficient=self.StackCoefficient,
+                Wind_Coefficient=self.WindCoefficient,
+            )
+            return idf
         inf = ZoneInfiltrationDesignFlowRate(
             Name=infiltration_name,
             Zone_or_ZoneList_Name=target_zone_or_zone_list_name,

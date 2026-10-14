@@ -206,6 +206,10 @@ model Ventilation {
   HRV                  String // "NoHRV", "Sensible", "Enthalpy"
   Economizer           String // "NoEconomizer", "DifferentialDryBulb", "DifferentialEnthalpy"
   DCV                  String // "NoDCV", "OccupancySchedule", "CO2Setpoint"
+  NaturalVentMinOutdoorTemperature Float?
+  NaturalVentMaxOutdoorTemperature Float?
+  NaturalVentDeltaTemperature      Float?
+  NaturalVentAboveSetpointMidpoint Boolean?
 
   // Relations
   MetadataId String?
@@ -409,6 +413,9 @@ model Infiltration {
   AirChangesPerHour              Float
   FlowPerExteriorSurfaceArea     Float
   CalculationMethod              String
+  SpecificLeakageArea            Float?
+  StackCoefficient               Float?
+  WindCoefficient                Float?
 
   // Relations
   MetadataId String?

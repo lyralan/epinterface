@@ -152,6 +152,21 @@ class VentilationComponent(NamedObject, MetadataMixin, extra="forbid"):
     HRV: HRVMethod = Field(..., title="HRV type of the object")
     Economizer: EconomizerMethod = Field(..., title="Economizer type of the object")
     DCV: DCVMethod = Field(..., title="DCV type of the object")
+    NaturalVentMinOutdoorTemperature: float | None = Field(
+        default=None, title="Natural ventilation: minimum outdoor temperature [C] (unset: 12)"
+    )
+    NaturalVentMaxOutdoorTemperature: float | None = Field(
+        default=None, title="Natural ventilation: maximum outdoor temperature [C] (unset: 25)"
+    )
+    NaturalVentDeltaTemperature: float | None = Field(
+        default=None,
+        title="Natural ventilation: open only when indoor exceeds outdoor by this much [C] (unset: 2)",
+    )
+    NaturalVentAboveSetpointMidpoint: bool | None = Field(
+        default=None,
+        title="Natural ventilation: open only when indoor is above the mean of the heating and "
+        "cooling setpoints (as OpenStudio-HPXML)",
+    )
 
     @model_validator(mode="after")
     def validate_ventilation_systems(self):
