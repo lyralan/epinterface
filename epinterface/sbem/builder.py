@@ -996,6 +996,13 @@ class Model(BaseWeather, validate_assignment=True):
 
             for zone in added_zone_lists.basement_zone_list.Names:
                 new_zone_def.add_to_idf_zone(idf, zone)
+        else:
+            # an unused, unconditioned basement likewise gets no zone definition; give it its
+            # infiltration so it is not sealed (as the attic below).
+            for zone in added_zone_lists.basement_zone_list.Names:
+                idf = self.Zone.Envelope.BasementInfiltration.add_infiltration_to_idf_zone(
+                    idf, zone
+                )
 
         if self.Attic.UseFraction or self.Attic.Conditioned:
             new_zone_def = self.Zone.model_copy(deep=True)
