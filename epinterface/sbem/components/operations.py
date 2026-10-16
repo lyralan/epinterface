@@ -174,8 +174,16 @@ class ZoneOperationsComponent(
 
         heating_schedule_name = None
         cooling_schedule_name = None
+        heat_high = cool_low = None
         if heating_schedule is not None:
-            _, heat_high = self.SpaceUse.Thermostat.HeatingSchedule.bounds
+            _, heat_high = heating_schedule.bounds
+        if cooling_schedule is not None:
+            cool_low, _ = cooling_schedule.bounds
+        if heat_high is not None and cool_low is not None and heat_high > cool_low:
+            # the year's highest heating and lowest cooling setpoints can cross even when the
+            # hourly schedules never do; E+ rejects crossed design-day setpoints, so use the mean
+            heat_high = cool_low = (heat_high + cool_low) / 2
+        if heating_schedule is not None:
             heating_design_day = ScheduleDayHourly(
                 Name=f"{thermostat_name}_HeatingDesignDay",
                 Schedule_Type_Limits_Name="Temperature",
@@ -212,7 +220,6 @@ class ZoneOperationsComponent(
                 summer_design_day_sch_name=heating_design_day.Name,
             )
         if cooling_schedule is not None:
-            cool_low, _ = self.SpaceUse.Thermostat.CoolingSchedule.bounds
             cooling_design_day = ScheduleDayHourly(
                 Name=f"{thermostat_name}_CoolingDesignDay",
                 Schedule_Type_Limits_Name="Temperature",
