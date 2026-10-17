@@ -106,12 +106,14 @@ class InfiltrationComponent(
         title="Infiltration flow per exterior surface area [m3/s/m2]",
         ge=0,
     )
-    CalculationMethod: InfDesignFlowRateCalculationMethodType | Literal["EffectiveLeakageArea"] = Field(
+    CalculationMethod: InfDesignFlowRateCalculationMethodType | Literal["EffectiveLeakageArea", "FlowCoefficient"] = Field(
         ...,
         title="Calculation method",
-        description="A ZoneInfiltration:DesignFlowRate method, or EffectiveLeakageArea for "
-        "ZoneInfiltration:EffectiveLeakageArea (Sherman-Grimsrud stack and wind), which uses "
-        "the three fields below and needs a single zone, not a zone list.",
+        description="A ZoneInfiltration:DesignFlowRate method; EffectiveLeakageArea for "
+        "ZoneInfiltration:EffectiveLeakageArea (Sherman-Grimsrud stack and wind: SpecificLeakageArea, "
+        "StackCoefficient, WindCoefficient); or FlowCoefficient for ZoneInfiltration:FlowCoefficient "
+        "(AIM-2 / Walker-Wilson stack and wind: FlowCoefficientPerFloorArea, StackCoefficient, "
+        "PressureExponent, WindCoefficient, ShelterFactor). Both need a single zone, not a zone list.",
     )
     SpecificLeakageArea: float | None = Field(
         default=None,
@@ -120,13 +122,30 @@ class InfiltrationComponent(
     )
     StackCoefficient: float | None = Field(
         default=None,
-        title="Sherman-Grimsrud stack coefficient [(L/s)2/(cm4.K)]",
+        title="Stack coefficient: Sherman-Grimsrud [(L/s)2/(cm4.K)] or AIM-2 Cs [(Pa/K)^n]",
         ge=0,
     )
     WindCoefficient: float | None = Field(
         default=None,
-        title="Sherman-Grimsrud wind coefficient [(L/s)2/(cm4.(m/s)2)]",
+        title="Wind coefficient: Sherman-Grimsrud [(L/s)2/(cm4.(m/s)2)] or AIM-2 Cw [(Pa.s2/m2)^n]",
         ge=0,
+    )
+    FlowCoefficientPerFloorArea: float | None = Field(
+        default=None,
+        title="AIM-2 flow coefficient c per zone floor area [m3/(s.Pa^n.m2)]",
+        description="The building's c divided by its conditioned floor area, so each zone of a "
+        "multi-zone building gets its floor-area share.",
+        ge=0,
+    )
+    PressureExponent: float | None = Field(
+        default=None,
+        title="AIM-2 pressure exponent n [-]",
+        gt=0,
+    )
+    ShelterFactor: float | None = Field(
+        default=None,
+        title="AIM-2 shelter factor s [-] (multiplies the weather file wind speed)",
+        gt=0,
     )
 
     @model_validator(mode="after")
@@ -138,6 +157,18 @@ class InfiltrationComponent(
             self.WindCoefficient,
         ):
             msg = "EffectiveLeakageArea needs SpecificLeakageArea, StackCoefficient and WindCoefficient."
+            raise ValueError(msg)
+        if self.CalculationMethod == "FlowCoefficient" and None in (
+            self.FlowCoefficientPerFloorArea,
+            self.StackCoefficient,
+            self.PressureExponent,
+            self.WindCoefficient,
+            self.ShelterFactor,
+        ):
+            msg = (
+                "FlowCoefficient needs FlowCoefficientPerFloorArea, StackCoefficient, "
+                "PressureExponent, WindCoefficient and ShelterFactor."
+            )
             raise ValueError(msg)
         return self
 
@@ -179,6 +210,22 @@ class InfiltrationComponent(
                 Effective_Air_Leakage_Area=round(self.SpecificLeakageArea * area_m2 * 1e4, 4),  # cm2
                 Stack_Coefficient=self.StackCoefficient,
                 Wind_Coefficient=self.WindCoefficient,
+            )
+            return idf
+        if self.CalculationMethod == "FlowCoefficient":
+            from epinterface.geometry import get_zone_floor_area
+
+            area_m2 = get_zone_floor_area(idf, target_zone_or_zone_list_name)
+            idf.newidfobject(
+                "ZONEINFILTRATION:FLOWCOEFFICIENT",
+                Name=infiltration_name,
+                Zone_or_Space_Name=target_zone_or_zone_list_name,
+                Schedule_Name=inf_schedule.Name,
+                Flow_Coefficient=self.FlowCoefficientPerFloorArea * area_m2,
+                Stack_Coefficient=self.StackCoefficient,
+                Pressure_Exponent=self.PressureExponent,
+                Wind_Coefficient=self.WindCoefficient,
+                Shelter_Factor=self.ShelterFactor,
             )
             return idf
         inf = ZoneInfiltrationDesignFlowRate(

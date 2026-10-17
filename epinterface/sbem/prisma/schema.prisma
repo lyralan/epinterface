@@ -416,6 +416,9 @@ model Infiltration {
   SpecificLeakageArea            Float?
   StackCoefficient               Float?
   WindCoefficient                Float?
+  FlowCoefficientPerFloorArea    Float?
+  PressureExponent               Float?
+  ShelterFactor                  Float?
 
   // Relations
   MetadataId String?
